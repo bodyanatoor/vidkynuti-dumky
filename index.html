@@ -263,6 +263,14 @@ textarea {
 .sticky-note {
   pointer-events: auto; /* але самі стікери все одно клікаються */
 }
+    /* кнопка поверх усього */
+#submitBtn {
+  position: relative;
+  z-index: 1000;
+}
+
+/* щоб textarea не перекривала з невидимим шаром */
+textarea { position: relative; z-index: 1; }
     </style>
 </head>
 <body>
