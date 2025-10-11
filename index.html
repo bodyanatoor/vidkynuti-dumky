@@ -271,11 +271,38 @@ textarea {
 
 /* щоб textarea не перекривала з невидимим шаром */
 textarea { position: relative; z-index: 1; }
+    /* Контейнер: звичайний потік, без абсолютів */
+.sticky-stack{
+  display:flex !important;
+  flex-wrap:wrap !important;
+  gap:16px !important;
+  align-items:flex-start !important;
+}
+
+/* Повністю скасовуємо попередні обертання/позиціювання */
+.sticky-note{
+  position:relative !important;
+  top:auto !important; left:auto !important; right:auto !important; bottom:auto !important;
+  transform:none !important;
+  order:initial !important;
+  /* базова “стікерна” стилістика */
+  background:#fff8c6;
+  padding:12px 16px;
+  border-radius:6px;
+  box-shadow:0 2px 8px rgba(0,0,0,.08);
+  max-width:min(48ch, 90vw);
+}
+
+/* На всяк випадок — жодних nth-child приколів */
+.sticky-stack > *{
+  transform:none !important;
+  order:initial !important;
+}
     </style>
 </head>
 <body>
     <h1 class="title">ВІДКИНУТІ ДУМКИ</h1>
-    <div class="sticky-stack" id="stickyStack"></div>
+    <div class="sticky-stack" id="Stack"></div>
     <div class="form-section">
         <h2 class="form-title">Яку думку ви відкинули?</h2>
         <textarea id="thoughtInput" placeholder="Напишіть те, що не встигло стати..." maxlength="300"></textarea>
