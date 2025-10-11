@@ -244,6 +244,25 @@
             textarea { min-height: 120px; font-size: 14px; }
             .counter { bottom: 20px; right: 20px; font-size: 12px; }
         }
+        /* === ФІКС ДЛЯ КНОПКИ === */
+.submit-btn {
+  position: relative;
+  z-index: 9999; /* поверх усього */
+}
+
+textarea {
+  position: relative;
+  z-index: 10; /* трохи нижче кнопки */
+}
+
+/* Якщо жовті стікери перекривають низ — знімаємо події */
+.sticky-stack {
+  pointer-events: none; /* не ловить кліки */
+}
+
+.sticky-note {
+  pointer-events: auto; /* але самі стікери все одно клікаються */
+}
     </style>
 </head>
 <body>
