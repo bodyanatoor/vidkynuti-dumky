@@ -33,6 +33,7 @@
       content:'';position:absolute;top:0;left:0;right:0;height:20px;
       background:linear-gradient(to bottom,rgba(0,0,0,.08),transparent);
     }
+    /* стопка */
     .sticky-note:nth-child(1){z-index:10;transform:rotate(0deg)}
     .sticky-note:nth-child(2){z-index:9; transform:rotate(-1deg) translateY(3px);  opacity:.95}
     .sticky-note:nth-child(3){z-index:8; transform:rotate(1deg)  translateY(6px);  opacity:.9}
@@ -45,20 +46,30 @@
       z-index:50 !important;
     }
 
+    /* анімації відривання */
     .sticky-note.peeling-right{animation:peelRight 1.2s cubic-bezier(.34,1.56,.64,1) forwards}
     .sticky-note.peeling-left{ animation:peelLeft  1.2s cubic-bezier(.34,1.56,.64,1) forwards}
     .sticky-note.peeling-up{   animation:peelUp    1s   cubic-bezier(.34,1.56,.64,1) forwards}
 
     @keyframes peelRight{
       0%{transform:rotate(0) translate(0,0) scale(1);opacity:1}
+      20%{transform:rotate(-8deg) translate(10px,-30px) scale(1.05)}
+      50%{transform:rotate(-15deg) translate(150px,-200px) scale(.9)}
+      70%{transform:rotate(-25deg) translate(280px,-350px) scale(.7);opacity:.8}
       100%{transform:rotate(-35deg) translate(400px,-600px) scale(.3);opacity:0}
     }
     @keyframes peelLeft{
       0%{transform:rotate(0) translate(0,0) scale(1);opacity:1}
+      20%{transform:rotate(8deg) translate(-10px,-30px) scale(1.05)}
+      50%{transform:rotate(15deg) translate(-150px,-200px) scale(.9)}
+      70%{transform:rotate(25deg) translate(-280px,-350px) scale(.7);opacity:.8}
       100%{transform:rotate(35deg) translate(-400px,-600px) scale(.3);opacity:0}
     }
     @keyframes peelUp{
       0%{transform:rotate(0) translate(0,0) scale(1);opacity:1}
+      20%{transform:rotate(-3deg) translate(5px,-40px) scale(1.08)}
+      50%{transform:rotate(5deg) translate(-20px,-250px) scale(.85)}
+      70%{transform:rotate(-10deg) translate(30px,-450px) scale(.6);opacity:.7}
       100%{transform:rotate(15deg) translate(-50px,-700px) scale(.2);opacity:0}
     }
 
@@ -83,7 +94,7 @@
       margin-top:20px;padding:15px 40px;font-family:inherit;font-size:16px;
       background:#FFD952;color:#000;border:none;cursor:pointer;transition:all .3s;
       text-transform:uppercase;letter-spacing:.05em;font-weight:600;
-      position:relative;z-index:1000;
+      position:relative;z-index:1000; /* поверх усього */
     }
     .submit-btn:hover{background:#FFE87C;transform:translateY(-2px);box-shadow:0 5px 15px rgba(255,217,82,.4)}
     .submit-btn:disabled{opacity:.5;cursor:not-allowed;transform:none}
@@ -91,26 +102,21 @@
     .message{margin-top:20px;font-size:14px;opacity:0;transition:opacity .3s}
     .message.visible{opacity:.7}
 
-    /* === НИЖНІЙ ТЕКСТ-ЛІНК === */
-    .contact-link{
-      position:fixed;
-      bottom:30px;
-      right:30px;
-      font-size:14px;
-      opacity:.6;
-      color:#fff;
-      text-decoration:none;
-      transition:opacity .3s;
-    }
-    .contact-link:hover{opacity:1;text-decoration:underline;color:#FFD952}
+    .counter{position:fixed;bottom:30px;right:30px;font-size:14px;opacity:.5;z-index:100}
 
     @media (max-width:768px){
-      .contact-link{bottom:20px;right:20px;font-size:12px}
+      body{padding:20px 15px}
+      .title{margin-bottom:40px}
+      .sticky-stack{max-width:320px;height:320px;margin-bottom:40px}
+      .sticky-note{padding:40px 30px}
+      textarea{min-height:120px;font-size:14px}
+      .counter{bottom:20px;right:20px;font-size:12px}
     }
   </style>
 </head>
 <body>
   <h1 class="title">ВІДКИНУТІ ДУМКИ</h1>
+
   <div class="sticky-stack" id="stickyStack"></div>
 
   <div class="form-section">
@@ -120,12 +126,11 @@
     <div class="message" id="message"></div>
   </div>
 
-  <!-- Новий блок — замість лічильника -->
-  <a href="https://t.me/bodyanatoor" target="_blank" class="contact-link">
-    Для контакту з автором натисніть сюди
-  </a>
+  <div class="counter" id="counter"></div>
 
+  <!-- Основний скрипт (працює з/без Firebase) -->
   <script type="module">
+    /* ---------- Firebase (необов'язково). Сторінка працює і без нього ---------- */
     import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
     import { getFirestore, collection, addDoc, getDocs, query, orderBy, limit } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
 
@@ -139,102 +144,288 @@
     };
 
     let db = null;
-    try { db = getFirestore(initializeApp(firebaseConfig)); } 
-    catch { console.log("Firebase not configured — running locally"); }
+    try {
+      const app = initializeApp(firebaseConfig);
+      db = getFirestore(app);
+    } catch (e) {
+      console.log('Firebase not configured — running in local-only mode.');
+    }
 
-    const stack = document.getElementById('stickyStack');
-    const input = document.getElementById('thoughtInput');
-    const submitBtn = document.getElementById('submitBtn');
-    const message = document.getElementById('message');
-
+    /* ---------- Дані ---------- */
     const initialThoughts = [
       '"Заспокоїти свого внутрішнього досягача"',
       '"чому я взагалі роблю"',
       '"ти обираєш кого любити і"',
       '"Писати думки в тг це не..."',
-      '"Іноді мені здається, що я просто..."'
+      '"Іноді мені здається, що я просто..."',
+      '"Я хотів написати про сенси, але вийшло про..."',
+      '"Мене лякає, як легко ми..."',
+      '"Я постійно починаю, але не..."',
+      '"Мабуть, проблема не в тому, що я..."',
+      '"Кожен раз, коли я відчуваю натхнення, здається..."',
+      '"...жодна з них не влаштовує мене до кінця."',
+      '"Насправді ми любимо слухати факапи інших..."',
+      '"Людині, якій властиво бути креативною, ніколи не..."',
+      '"В кожному успіху є трохи брехні, яку ми..."',
+      '"Балада про духів лісу..."',
+      '"Може, я просто надто серйозно ставлюсь..."',
+      '"Коли я починаю сумніватися, це зазвичай означає..."',
+      '"Іноді я думаю, що дисципліна — це просто форма..."',
+      '"можливо мені варто"',
+      '"якби я міг почати знову"',
+      '"чи справді це має сенс"',
+      '"іноді я ловлю себе на думці що"',
+      '"можливо проблема в тому що я"',
+      '"я не впевнений що"',
+      '"здається я знову"',
+      '"кожен раз коли я думаю про це"',
+      '"мабуть це все про те що"',
+      '"я ніколи не зможу"',
+      '"чому інші можуть а я"',
+      '"якщо подумати то насправді"',
+      '"я завжди хотів сказати що"',
+      '"можливо це звучить дивно але"',
+      '"іноді мені здається що ніхто не"',
+      '"я не знаю як це пояснити"',
+      '"можливо я єдиний хто"',
+      '"чому так важко просто"',
+      '"я думав що це буде інакше"',
+      '"мабуть я надто багато думаю про"',
+      '"кожного разу коли я намагаюсь"',
+      '"можливо це не те що"',
+      '"я не можу зрозуміти чому"',
+      '"здається все що я роблю"',
+      '"можливо мені просто треба"',
+      '"я завжди відкладаю це тому що"',
+      '"чи варто взагалі намагатись якщо"',
+      '"іноді я відчуваю що"',
+      '"можливо це звучить егоїстично але"',
+      '"я не впевнений чи хочу"',
+      '"кожен день я обіцяю собі що"',
+      '"мабуть я боюсь того що"',
+      '"чому я не можу просто"',
+      '"можливо колись я зрозумію"',
+      '"я намагався пояснити але"',
+      '"здається що всі навколо"',
+      '"можливо я занадто"',
+      '"я хотів би вірити що"',
+      '"чому так складно бути"',
+      '"іноді я думаю що життя це"',
+      '"можливо справжня мудрість у тому щоб"',
+      '"я не знаю з чого почати"',
+      '"кожен раз коли я дивлюсь на"',
+      '"можливо щастя це коли"',
+      '"я боюсь що ніколи не"',
+      '"чи нормально що мене"',
+      '"іноді я ловлю себе на тому що просто"',
+      '"можливо найстрашніше це"',
+      '"я не розумію навіщо"',
+      '"здається що час"',
+      '"можливо я помиляюсь але мені здається що"',
+      '"чому кожен раз коли я"',
+      '"я хотів би сказати що важливо"',
+      '"іноді найважче це"',
+      '"можливо справжня свобода це"',
+      '"я не знаю чи готовий до"',
+      '"кожного вечора я думаю про те як"',
+      '"можливо це прозвучить банально але"',
+      '"я завжди мріяв про те щоб"',
+      '"чи варто боротись за те що"',
+      '"іноді мені здається що всі мої спроби"',
+      '"можливо найважливіше це не"',
+      '"я не впевнений що хочу знати"',
+      '"здається що чим більше я дізнаюсь"',
+      '"можливо саме в цьому"',
+      '"чому так важко прийняти що"',
+      '"я думав що з віком стане легше"',
+      '"іноді найчесніше це просто"',
+      '"можливо я ніколи не зрозумію чому"',
+      '"кожен новий день це шанс"',
+      '"я не знаю чи правильно але"',
+      '"здається всі ці роки я"',
+      '"можливо найскладніше визнати що"',
+      '"чому ніхто не каже про те що"',
+      '"я хотів би повірити що колись"',
+      '"іноді єдине що залишається це"',
+      '"можливо справжня сила у тому щоб"',
+      '"я боюсь що забуду як"',
+      '"чи нормально що іноді я"',
+      '"здається найпростіші речі"',
+      '"можливо я ніколи не стану тим хто"',
+      '"кожен раз коли я закриваю очі"',
+      '"я не розумію чому мені так важко"',
+      '"іноді найгірше це усвідомлення що"',
+      '"можливо все що мені треба це"',
+      '"чому я досі не можу"',
+      '"я думав що знаю але насправді"'
     ];
 
     let thoughts = [...initialThoughts];
-    let order = [];
     let currentIndex = 0;
 
+    const stack   = document.getElementById('stickyStack');
+    const counter = document.getElementById('counter');
+    const message = document.getElementById('message');
+    const input   = document.getElementById('thoughtInput');
+    const submitBtn = document.getElementById('submitBtn');
+
+    /* ---------- Рандомна черга ---------- */
+    let order = [];
     function reshuffle(){
-      order = thoughts.map((_, i)=>i);
-      for(let i=order.length-1;i>0;i--){
-        const j=Math.floor(Math.random()*(i+1));
-        [order[i],order[j]]=[order[j],order[i]];
+      order = thoughts.map((_, i) => i);
+      for (let i = order.length - 1; i > 0; i--){
+        const j = Math.floor(Math.random()*(i+1));
+        [order[i], order[j]] = [order[j], order[i]];
       }
-      currentIndex=0;
+      currentIndex = 0;
     }
 
-    async function loadThoughts(){
-      if(!db) return;
+    /* ---------- Завантаження Firebase (якщо є) ---------- */
+    async function loadThoughtsFromFirebase(){
+      if (!db) return; // працюємо локально
       try{
-        const q=query(collection(db,'thoughts'),orderBy('timestamp','desc'),limit(20));
-        const snap=await getDocs(q);
-        snap.forEach(d=>{
-          const t=d.data().text;
-          if(t && !thoughts.includes(t)) thoughts.push(t);
+        const q = query(collection(db,'thoughts'), orderBy('timestamp','desc'), limit(20));
+        const snap = await getDocs(q);
+        snap.forEach(doc=>{
+          const t = doc.data().text;
+          if (t && !thoughts.includes(t)) thoughts.push(t);
         });
-      }catch{}
+      }catch(e){
+        console.log('Firebase unavailable, using local data');
+      }
     }
 
+    /* ---------- Рендер стопки (5 карток) за рандом-чергою ---------- */
     function createStickies(){
-      stack.innerHTML='';
-      const total=order.length||thoughts.length;
-      for(let i=0;i<5&&i<total;i++){
-        const oi=(currentIndex+i)%total;
-        const ti=order.length?order[oi]:oi;
-        const sticky=document.createElement('div');
-        sticky.className='sticky-note';
-        sticky.innerHTML=`<div class="sticky-text">${thoughts[ti]}</div>`;
-        if(i===0) sticky.addEventListener('click',peelSticky);
+      stack.innerHTML = '';
+      const total = order.length || thoughts.length;
+      if (total === 0) return;
+
+      for (let i = 0; i < 5 && i < total; i++){
+        const oi = (currentIndex + i) % total;        // позиція у черзі
+        const ti = order.length ? order[oi] : oi;     // індекс думки
+        const text = thoughts[ti];
+
+        const sticky = document.createElement('div');
+        sticky.className = 'sticky-note';
+        sticky.innerHTML = `<div class="sticky-text">${text}</div>`;
+
+        if (i === 0) sticky.addEventListener('click', peelSticky);
         stack.appendChild(sticky);
       }
+      updateCounter();
     }
 
+    /* ---------- Відривання верхнього стікера ---------- */
     function peelSticky(){
-      const s=stack.querySelector('.sticky-note:first-child');
-      if(!s) return;
-      const dirs=['peeling-right','peeling-left','peeling-up'];
-      s.classList.add(dirs[Math.floor(Math.random()*dirs.length)]);
-      s.style.pointerEvents='none';
+      const topSticky = stack.querySelector('.sticky-note:first-child');
+      if (!topSticky || topSticky.classList.contains('peeling-right') || 
+                       topSticky.classList.contains('peeling-left') || 
+                       topSticky.classList.contains('peeling-up')) return;
+
+      const directions = ['peeling-right','peeling-left','peeling-up'];
+      const dir = directions[Math.floor(Math.random()*directions.length)];
+
+      playPeelSound();
+      topSticky.classList.add(dir);
+      topSticky.style.pointerEvents = 'none';
+
       setTimeout(()=>{
-        const total=order.length||thoughts.length;
-        currentIndex=(currentIndex+1)%total;
+        const total = order.length || thoughts.length;
+        currentIndex = (currentIndex + 1) % total;
         createStickies();
-      },1200);
+      }, 1200);
     }
 
-    function showMessage(t){
-      message.textContent=t;
-      message.classList.add('visible');
-      setTimeout(()=>message.classList.remove('visible'),3000);
-    }
-
-    function isSpam(text){
-      return [/https?:\/\//i,/www\./i,/@[\w]+/i,/(buy|sale|discount)/i].some(r=>r.test(text));
-    }
-
-    submitBtn.addEventListener('click',async()=>{
-      const raw=input.value.trim();
-      if(raw.length<5){showMessage('Думка занадто коротка...');return;}
-      if(isSpam(raw)){showMessage('Схоже на спам.');return;}
-      const wrapped=`"${raw}"`;
+    /* ---------- Звук (синтетичний) ---------- */
+    function playPeelSound(){
       try{
-        if(db) await addDoc(collection(db,'thoughts'),{text:wrapped,timestamp:new Date()});
+        const Ctx = window.AudioContext || window.webkitAudioContext;
+        const ac = new Ctx();
+        const bufferSize = ac.sampleRate * 0.15;
+        const buf = ac.createBuffer(1, bufferSize, ac.sampleRate);
+        const data = buf.getChannelData(0);
+        for (let i=0;i<bufferSize;i++){
+          const env = Math.exp(-i/(bufferSize*0.3));
+          data[i] = (Math.random()*2-1)*env*0.15;
+        }
+        const src = ac.createBufferSource(); src.buffer = buf;
+        const filt = ac.createBiquadFilter(); filt.type='bandpass'; filt.frequency.value=2000; filt.Q.value=1;
+        const gain = ac.createGain(); gain.gain.value=0.3;
+        src.connect(filt); filt.connect(gain); gain.connect(ac.destination); src.start();
+      }catch(e){/* no audio */}
+    }
+
+    /* ---------- Автовідрив кожні 15с ---------- */
+    function autoPeel(){ peelSticky(); }
+    let autoPeelInterval = setInterval(autoPeel, 15000);
+
+    /* ---------- Лічильник ---------- */
+    function updateCounter(){
+      const total = order.length || thoughts.length;
+      counter.textContent = `${(total? currentIndex+1 : 0)} / ${total}`;
+    }
+
+    /* ---------- Антиспам ---------- */
+    function isSpam(text){
+      const rules = [/https?:\/\//i, /www\./i, /@[\w]+/i, /\b(купити|buy|sale|discount|viagra)\b/i, /((.)\2{4,})/i];
+      return rules.some(r=>r.test(text));
+    }
+
+    /* ---------- Надсилання нової думки ---------- */
+    submitBtn.addEventListener('click', async ()=>{
+      const raw = (input.value || '').trim();
+      if (raw.length < 5) { showMessage('Думка занадто коротка...'); return; }
+      if (raw.length > 300){ showMessage('Думка занадто довга...');  return; }
+      if (isSpam(raw))     { showMessage('Схоже на спам. Спробуйте інакше.'); return; }
+
+      submitBtn.disabled = true;
+      const wrapped = `"${raw}"`;
+
+      try{
+        if (db){
+          await addDoc(collection(db,'thoughts'), { text: wrapped, timestamp: new Date() });
+        }
         thoughts.push(wrapped);
-        reshuffle();createStickies();
-        input.value='';showMessage('Додано!');
-      }catch(e){showMessage('Помилка, але думку збережено локально.')}
+        showMessage('Вашу думку додано до стопки стікерів!');
+        input.value = '';
+      }catch(e){
+        // fallback без Firebase
+        thoughts.push(wrapped);
+        showMessage('Вашу думку додано до стопки стікерів!');
+        input.value = '';
+      }finally{
+        submitBtn.disabled = false;
+        reshuffle();        // включаємо думку у випадкове місце черги
+        createStickies();
+        clearInterval(autoPeelInterval);
+        autoPeelInterval = setInterval(autoPeel, 15000);
+      }
     });
 
-    document.addEventListener('keydown',e=>{
-      if((e.key===' '||e.key==='Enter')&&document.activeElement!==input)peelSticky();
+    /* ---------- Повідомлення ---------- */
+    function showMessage(t){
+      message.textContent = t;
+      message.classList.add('visible');
+      setTimeout(()=>message.classList.remove('visible'), 3000);
+    }
+
+    /* ---------- Клавіші: пробіл/Enter відривають верхню ---------- */
+    document.addEventListener('keydown', (e)=>{
+      if ((e.key===' ' || e.key==='Enter') && document.activeElement !== input){
+        e.preventDefault();
+        peelSticky();
+        clearInterval(autoPeelInterval);
+        autoPeelInterval = setInterval(autoPeel, 15000);
+      }
     });
 
-    (async()=>{await loadThoughts();reshuffle();createStickies();})();
+    /* ---------- Старт ---------- */
+    (async function init(){
+      await loadThoughtsFromFirebase();
+      reshuffle();
+      createStickies();
+    })();
   </script>
 </body>
 </html>
