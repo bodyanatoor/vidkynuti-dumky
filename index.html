@@ -574,5 +574,64 @@ textarea { position: relative; z-index: 1; }
             createStickies();
         });
     </script>
+<script>
+  // === 1. РОБОТА КНОПКИ "ВІДКИНУТИ" ===
+  const btn = document.getElementById('submitBtn');
+  const textarea = document.querySelector('textarea');
+
+  // Фікс: кнопка не сабмітить форму, не перезавантажує сторінку
+  if (btn) {
+    btn.addEventListener('click', (e) => {
+      e.preventDefault();
+
+      const text = textarea.value.trim();
+      if (!text) return;
+
+      // Зберігаємо у LocalStorage (браузерне сховище)
+      const key = 'rejected_thoughts';
+      const arr = JSON.parse(localStorage.getItem(key) || '[]');
+      arr.push({ text, ts: Date.now() });
+      localStorage.setItem(key, JSON.stringify(arr));
+
+      // Ефект “відкинуто”
+      btn.disabled = true;
+      btn.textContent = 'ВІДКИНУТО ✓';
+      setTimeout(() => {
+        btn.disabled = false;
+        btn.textContent = 'Відкинути →';
+        textarea.value = '';
+      }, 800);
+
+      // Після натискання оновимо показ думок
+      renderThoughts();
+    });
+  }
+
+  // === 2. ВІДОБРАЖЕННЯ ДУМОК У РАНДОМНОМУ ПОРЯДКУ ===
+  function renderThoughts() {
+    const stack = document.querySelector('.sticky-stack');
+    if (!stack) return;
+
+    // Очищаємо контейнер
+    stack.innerHTML = '';
+
+    // Беремо думки з localStorage
+    const arr = JSON.parse(localStorage.getItem('rejected_thoughts') || '[]');
+
+    // Рандомізуємо порядок
+    arr.sort(() => Math.random() - 0.5);
+
+    // Створюємо елементи
+    arr.forEach(item => {
+      const note = document.createElement('div');
+      note.className = 'sticky-note';
+      note.textContent = item.text;
+      stack.appendChild(note);
+    });
+  }
+
+  // При завантаженні сторінки
+  document.addEventListener('DOMContentLoaded', renderThoughts);
+</script>
 </body>
 </html> 
