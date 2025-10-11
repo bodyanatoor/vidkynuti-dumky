@@ -112,6 +112,25 @@
       textarea{min-height:120px;font-size:14px}
       .counter{bottom:20px;right:20px;font-size:12px}
     }
+  /* === Новий блок замість лічильника === */
+.contact-link {
+  position: fixed;
+  bottom: 30px;
+  right: 30px;
+  font-size: 14px;
+  opacity: .6;
+  color: #fff;
+  text-decoration: none;
+  transition: opacity .3s;
+}
+.contact-link:hover {
+  opacity: 1;
+  text-decoration: underline;
+  color: #FFD952;
+}
+@media (max-width:768px){
+  .contact-link{bottom:20px;right:20px;font-size:12px;}
+}
   </style>
 </head>
 <body>
@@ -126,7 +145,9 @@
     <div class="message" id="message"></div>
   </div>
 
-  <div class="counter" id="counter"></div>
+  <a href="https://t.me/bodyanatoor" target="_blank" class="contact-link">
+    Для контакту з автором натисніть сюди
+</a>
 
   <!-- Основний скрипт (працює з/без Firebase) -->
   <script type="module">
