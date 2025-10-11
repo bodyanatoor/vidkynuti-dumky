@@ -102,35 +102,13 @@
     .message{margin-top:20px;font-size:14px;opacity:0;transition:opacity .3s}
     .message.visible{opacity:.7}
 
-    .counter{position:fixed;bottom:30px;right:30px;font-size:14px;opacity:.5;z-index:100}
-
-    @media (max-width:768px){
-      body{padding:20px 15px}
-      .title{margin-bottom:40px}
-      .sticky-stack{max-width:320px;height:320px;margin-bottom:40px}
-      .sticky-note{padding:40px 30px}
-      textarea{min-height:120px;font-size:14px}
-      .counter{bottom:20px;right:20px;font-size:12px}
+    /* === НИЖНІЙ ТЕКСТ-ЛІНК (замість лічильника) === */
+    .contact-link{
+      position:fixed;bottom:30px;right:30px;font-size:14px;opacity:.6;
+      color:#fff;text-decoration:none;transition:opacity .3s;
     }
-  /* === Новий блок замість лічильника === */
-.contact-link {
-  position: fixed;
-  bottom: 30px;
-  right: 30px;
-  font-size: 14px;
-  opacity: .6;
-  color: #fff;
-  text-decoration: none;
-  transition: opacity .3s;
-}
-.contact-link:hover {
-  opacity: 1;
-  text-decoration: underline;
-  color: #FFD952;
-}
-@media (max-width:768px){
-  .contact-link{bottom:20px;right:20px;font-size:12px;}
-}
+    .contact-link:hover{opacity:1;text-decoration:underline;color:#FFD952}
+    @media (max-width:768px){.contact-link{bottom:20px;right:20px;font-size:12px}}
   </style>
 </head>
 <body>
@@ -143,36 +121,23 @@
     <textarea id="thoughtInput" placeholder="Напишіть те, що не встигло стати..." maxlength="300"></textarea>
     <button class="submit-btn" id="submitBtn" type="button">Відкинути →</button>
     <div class="message" id="message"></div>
+
+    <!-- Прихована форма, що шле у Google Forms/Sheets -->
+    <form id="gForm"
+          action="https://docs.google.com/forms/d/e/1FAIpQLSe_bL4F0ShYJOk-jPnU_HwhSLgjiWltAndlbvBMa6j7emEAmQ/formResponse"
+          method="POST" target="hidden_iframe" style="display:none">
+      <input type="text" name="entry.1717548432" id="gFormThought">
+    </form>
+    <iframe name="hidden_iframe" style="display:none"></iframe>
   </div>
 
+  <!-- Контакт -->
   <a href="https://t.me/bodyanatoor" target="_blank" class="contact-link">
     Для контакту з автором натисніть сюди
-</a>
+  </a>
 
-  <!-- Основний скрипт (працює з/без Firebase) -->
-  <script type="module">
-    /* ---------- Firebase (необов'язково). Сторінка працює і без нього ---------- */
-    import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
-    import { getFirestore, collection, addDoc, getDocs, query, orderBy, limit } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
-
-    const firebaseConfig = {
-      apiKey: "YOUR_API_KEY",
-      authDomain: "YOUR_PROJECT.firebaseapp.com",
-      projectId: "YOUR_PROJECT_ID",
-      storageBucket: "YOUR_PROJECT.appspot.com",
-      messagingSenderId: "YOUR_SENDER_ID",
-      appId: "YOUR_APP_ID"
-    };
-
-    let db = null;
-    try {
-      const app = initializeApp(firebaseConfig);
-      db = getFirestore(app);
-    } catch (e) {
-      console.log('Firebase not configured — running in local-only mode.');
-    }
-
-    /* ---------- Дані ---------- */
+  <script>
+    /* ---------- Дані (seed) ---------- */
     const initialThoughts = [
       '"Заспокоїти свого внутрішнього досягача"',
       '"чому я взагалі роблю"',
@@ -282,168 +247,130 @@
     ];
 
     let thoughts = [...initialThoughts];
+    let order = [];
     let currentIndex = 0;
 
-    const stack   = document.getElementById('stickyStack');
-    const counter = document.getElementById('counter');
-    const message = document.getElementById('message');
-    const input   = document.getElementById('thoughtInput');
+    const stack     = document.getElementById('stickyStack');
+    const input     = document.getElementById('thoughtInput');
     const submitBtn = document.getElementById('submitBtn');
+    const message   = document.getElementById('message');
 
     /* ---------- Рандомна черга ---------- */
-    let order = [];
     function reshuffle(){
-      order = thoughts.map((_, i) => i);
-      for (let i = order.length - 1; i > 0; i--){
-        const j = Math.floor(Math.random()*(i+1));
-        [order[i], order[j]] = [order[j], order[i]];
+      order = thoughts.map((_, i)=>i);
+      for(let i=order.length-1;i>0;i--){
+        const j=Math.floor(Math.random()*(i+1));
+        [order[i],order[j]]=[order[j],order[i]];
       }
       currentIndex = 0;
     }
 
-    /* ---------- Завантаження Firebase (якщо є) ---------- */
-    async function loadThoughtsFromFirebase(){
-      if (!db) return; // працюємо локально
-      try{
-        const q = query(collection(db,'thoughts'), orderBy('timestamp','desc'), limit(20));
-        const snap = await getDocs(q);
-        snap.forEach(doc=>{
-          const t = doc.data().text;
-          if (t && !thoughts.includes(t)) thoughts.push(t);
-        });
-      }catch(e){
-        console.log('Firebase unavailable, using local data');
-      }
-    }
-
-    /* ---------- Рендер стопки (5 карток) за рандом-чергою ---------- */
+    /* ---------- Рендер стопки (5 карток) ---------- */
     function createStickies(){
-      stack.innerHTML = '';
-      const total = order.length || thoughts.length;
-      if (total === 0) return;
+      stack.innerHTML='';
+      const total=order.length||thoughts.length;
+      if(!total) return;
 
-      for (let i = 0; i < 5 && i < total; i++){
-        const oi = (currentIndex + i) % total;        // позиція у черзі
-        const ti = order.length ? order[oi] : oi;     // індекс думки
-        const text = thoughts[ti];
-
-        const sticky = document.createElement('div');
-        sticky.className = 'sticky-note';
-        sticky.innerHTML = `<div class="sticky-text">${text}</div>`;
-
-        if (i === 0) sticky.addEventListener('click', peelSticky);
+      for(let i=0;i<5&&i<total;i++){
+        const oi=(currentIndex+i)%total;
+        const ti=order.length?order[oi]:oi;
+        const sticky=document.createElement('div');
+        sticky.className='sticky-note';
+        sticky.innerHTML=`<div class="sticky-text">${thoughts[ti]}</div>`;
+        if(i===0) sticky.addEventListener('click',peelSticky);
         stack.appendChild(sticky);
       }
-      updateCounter();
     }
 
     /* ---------- Відривання верхнього стікера ---------- */
     function peelSticky(){
-      const topSticky = stack.querySelector('.sticky-note:first-child');
-      if (!topSticky || topSticky.classList.contains('peeling-right') || 
-                       topSticky.classList.contains('peeling-left') || 
-                       topSticky.classList.contains('peeling-up')) return;
-
-      const directions = ['peeling-right','peeling-left','peeling-up'];
-      const dir = directions[Math.floor(Math.random()*directions.length)];
-
-      playPeelSound();
-      topSticky.classList.add(dir);
-      topSticky.style.pointerEvents = 'none';
-
+      const s=stack.querySelector('.sticky-note:first-child');
+      if(!s || s.classList.contains('peeling-right') || s.classList.contains('peeling-left') || s.classList.contains('peeling-up')) return;
+      const dirs=['peeling-right','peeling-left','peeling-up'];
+      s.classList.add(dirs[Math.floor(Math.random()*dirs.length)]);
+      s.style.pointerEvents='none';
       setTimeout(()=>{
-        const total = order.length || thoughts.length;
-        currentIndex = (currentIndex + 1) % total;
+        const total=order.length||thoughts.length;
+        currentIndex=(currentIndex+1)%total;
         createStickies();
-      }, 1200);
+        restartAutoPeel();
+      },1200);
+      playPeelSound();
     }
 
-    /* ---------- Звук (синтетичний) ---------- */
+    /* ---------- Звук ---------- */
     function playPeelSound(){
       try{
-        const Ctx = window.AudioContext || window.webkitAudioContext;
-        const ac = new Ctx();
-        const bufferSize = ac.sampleRate * 0.15;
-        const buf = ac.createBuffer(1, bufferSize, ac.sampleRate);
-        const data = buf.getChannelData(0);
-        for (let i=0;i<bufferSize;i++){
-          const env = Math.exp(-i/(bufferSize*0.3));
-          data[i] = (Math.random()*2-1)*env*0.15;
+        const Ctx=window.AudioContext||window.webkitAudioContext;
+        const ac=new Ctx();
+        const bufferSize=ac.sampleRate*0.15;
+        const buf=ac.createBuffer(1,bufferSize,ac.sampleRate);
+        const data=buf.getChannelData(0);
+        for(let i=0;i<bufferSize;i++){
+          const env=Math.exp(-i/(bufferSize*0.3));
+          data[i]=(Math.random()*2-1)*env*0.15;
         }
-        const src = ac.createBufferSource(); src.buffer = buf;
-        const filt = ac.createBiquadFilter(); filt.type='bandpass'; filt.frequency.value=2000; filt.Q.value=1;
-        const gain = ac.createGain(); gain.gain.value=0.3;
-        src.connect(filt); filt.connect(gain); gain.connect(ac.destination); src.start();
-      }catch(e){/* no audio */}
+        const src=ac.createBufferSource(); src.buffer=buf;
+        const filt=ac.createBiquadFilter(); filt.type='bandpass'; filt.frequency.value=2000; filt.Q.value=1;
+        const gain=ac.createGain(); gain.gain.value=0.3;
+        src.connect(filt);filt.connect(gain);gain.connect(ac.destination);src.start();
+      }catch(e){}
     }
 
-    /* ---------- Автовідрив кожні 15с ---------- */
+    /* ---------- Автоперегортання ---------- */
     function autoPeel(){ peelSticky(); }
     let autoPeelInterval = setInterval(autoPeel, 15000);
-
-    /* ---------- Лічильник ---------- */
-    function updateCounter(){
-      const total = order.length || thoughts.length;
-      counter.textContent = `${(total? currentIndex+1 : 0)} / ${total}`;
+    function restartAutoPeel(){
+      clearInterval(autoPeelInterval);
+      autoPeelInterval = setInterval(autoPeel, 15000);
     }
 
     /* ---------- Антиспам ---------- */
     function isSpam(text){
-      const rules = [/https?:\/\//i, /www\./i, /@[\w]+/i, /\b(купити|buy|sale|discount|viagra)\b/i, /((.)\2{4,})/i];
+      const rules=[/https?:\/\//i,/www\./i,/@[\w]+/i,/\b(купити|buy|sale|discount|viagra)\b/i,/((.)\2{4,})/i];
       return rules.some(r=>r.test(text));
     }
 
-    /* ---------- Надсилання нової думки ---------- */
-    submitBtn.addEventListener('click', async ()=>{
-      const raw = (input.value || '').trim();
-      if (raw.length < 5) { showMessage('Думка занадто коротка...'); return; }
-      if (raw.length > 300){ showMessage('Думка занадто довга...');  return; }
-      if (isSpam(raw))     { showMessage('Схоже на спам. Спробуйте інакше.'); return; }
+    /* ---------- Надсилання у Google Form/Sheets ---------- */
+    submitBtn.addEventListener('click', (e)=>{
+      e.preventDefault();
+      const raw=(input.value||'').trim();
 
-      submitBtn.disabled = true;
-      const wrapped = `"${raw}"`;
+      if(raw.length<5){showMessage('Думка занадто коротка...');return;}
+      if(raw.length>300){showMessage('Думка занадто довга...');return;}
+      if(isSpam(raw)){showMessage('Схоже на спам. Спробуйте інакше.');return;}
 
-      try{
-        if (db){
-          await addDoc(collection(db,'thoughts'), { text: wrapped, timestamp: new Date() });
-        }
-        thoughts.push(wrapped);
-        showMessage('Вашу думку додано до стопки стікерів!');
-        input.value = '';
-      }catch(e){
-        // fallback без Firebase
-        thoughts.push(wrapped);
-        showMessage('Вашу думку додано до стопки стікерів!');
-        input.value = '';
-      }finally{
-        submitBtn.disabled = false;
-        reshuffle();        // включаємо думку у випадкове місце черги
-        createStickies();
-        clearInterval(autoPeelInterval);
-        autoPeelInterval = setInterval(autoPeel, 15000);
-      }
+      // 1) підставляємо значення у приховану форму
+      document.getElementById('gFormThought').value = `"${raw}"`;
+      // 2) шлемо у Google Form
+      document.getElementById('gForm').submit();
+
+      // 3) локальний UX + додаємо у локальний стек (щоб одразу з’явилось)
+      thoughts.push(`"${raw}"`);
+      reshuffle(); createStickies();
+      input.value='';
+      showMessage('Відправлено ✅ Думка з’явиться у таблиці Google.');
+      restartAutoPeel();
     });
 
     /* ---------- Повідомлення ---------- */
     function showMessage(t){
-      message.textContent = t;
+      message.textContent=t;
       message.classList.add('visible');
-      setTimeout(()=>message.classList.remove('visible'), 3000);
+      setTimeout(()=>message.classList.remove('visible'),3000);
     }
 
-    /* ---------- Клавіші: пробіл/Enter відривають верхню ---------- */
+    /* ---------- Клавіші ---------- */
     document.addEventListener('keydown', (e)=>{
-      if ((e.key===' ' || e.key==='Enter') && document.activeElement !== input){
+      if((e.key===' '||e.key==='Enter') && document.activeElement!==input){
         e.preventDefault();
         peelSticky();
-        clearInterval(autoPeelInterval);
-        autoPeelInterval = setInterval(autoPeel, 15000);
+        restartAutoPeel();
       }
     });
 
     /* ---------- Старт ---------- */
-    (async function init(){
-      await loadThoughtsFromFirebase();
+    (function init(){
       reshuffle();
       createStickies();
     })();
