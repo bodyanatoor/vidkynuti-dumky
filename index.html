@@ -271,38 +271,11 @@ textarea {
 
 /* щоб textarea не перекривала з невидимим шаром */
 textarea { position: relative; z-index: 1; }
-    /* Контейнер: звичайний потік, без абсолютів */
-.sticky-stack{
-  display:flex !important;
-  flex-wrap:wrap !important;
-  gap:16px !important;
-  align-items:flex-start !important;
-}
-
-/* Повністю скасовуємо попередні обертання/позиціювання */
-.sticky-note{
-  position:relative !important;
-  top:auto !important; left:auto !important; right:auto !important; bottom:auto !important;
-  transform:none !important;
-  order:initial !important;
-  /* базова “стікерна” стилістика */
-  background:#fff8c6;
-  padding:12px 16px;
-  border-radius:6px;
-  box-shadow:0 2px 8px rgba(0,0,0,.08);
-  max-width:min(48ch, 90vw);
-}
-
-/* На всяк випадок — жодних nth-child приколів */
-.sticky-stack > *{
-  transform:none !important;
-  order:initial !important;
-}
     </style>
 </head>
 <body>
     <h1 class="title">ВІДКИНУТІ ДУМКИ</h1>
-    <div class="sticky-stack" id="Stack"></div>
+    <div class="sticky-stack" id="stickyStack"></div>
     <div class="form-section">
         <h2 class="form-title">Яку думку ви відкинули?</h2>
         <textarea id="thoughtInput" placeholder="Напишіть те, що не встигло стати..." maxlength="300"></textarea>
@@ -658,94 +631,6 @@ textarea { position: relative; z-index: 1; }
   }
 
   // При завантаженні сторінки
-  document.addEventListener('DOMContentLoaded', renderThoughts);
-</script>
-<script>
-  // Fisher–Yates shuffle
-  function shuffle(arr) {
-    for (let i = arr.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [arr[i], arr[j]] = [arr[j], arr[i]];
-    }
-    return arr;
-  }
-
-  // Зібрати тексти з DOM (якщо є заготовлені) + із LocalStorage
-  function collectThoughts() {
-    const fromDom = Array.from(document.querySelectorAll('.sticky-stack .sticky-note'))
-      .map(n => n.textContent.trim())
-      .filter(Boolean);
-
-    const key = 'rejected_thoughts';
-    const fromLS = JSON.parse(localStorage.getItem(key) || '[]')
-      .map(x => (typeof x === 'string' ? x : x.text))
-      .filter(Boolean);
-
-    // унікалізуємо
-    const set = new Set([...fromDom, ...fromLS]);
-    return Array.from(set);
-  }
-
-  function renderThoughts() {
-    const stack = document.querySelector('.sticky-stack');
-    if (!stack) return;
-
-    const texts = collectThoughts();
-
-    // перемішуємо щоразу
-    shuffle(texts);
-
-    // перерендер у новому порядку
-    stack.innerHTML = '';
-    texts.forEach(t => {
-      const note = document.createElement('div');
-      note.className = 'sticky-note';
-      note.textContent = t;
-
-      // трохи рандомної «рукописності»
-      const rot = (Math.random() * 8 - 4).toFixed(2);   // -4..4 градуси
-      const pad = 10 + Math.floor(Math.random() * 8);   // 10..17 px
-      const shades = ['#fff8c6','#fff3a8','#fff0b3','#fff9d6']; // варіанти «жовтого»
-      const bg = shades[Math.floor(Math.random() * shades.length)];
-      note.style.transform = `rotate(${rot}deg)`;
-      note.style.background = bg;
-      note.style.padding = `${pad}px ${pad+6}px`;
-      note.style.boxShadow = '0 2px 8px rgba(0,0,0,.08)';
-      note.style.borderRadius = '6px';
-      note.style.maxWidth = 'min(48ch, 90vw)';
-      stack.appendChild(note);
-    });
-  }
-
-  // Робота кнопки відкидання
-  const btn = document.getElementById('submitBtn');
-  const textarea = document.querySelector('textarea');
-
-  if (btn) {
-    btn.addEventListener('click', (e) => {
-      e.preventDefault();
-      const text = (textarea?.value || '').trim();
-      if (!text) return;
-
-      const key = 'rejected_thoughts';
-      const arr = JSON.parse(localStorage.getItem(key) || '[]');
-      arr.push({ text, ts: Date.now() });
-      localStorage.setItem(key, JSON.stringify(arr));
-
-      btn.disabled = true;
-      btn.textContent = 'ВІДКИНУТО ✓';
-      setTimeout(() => {
-        btn.disabled = false;
-        btn.textContent = 'Відкинути →';
-        if (textarea) textarea.value = '';
-      }, 800);
-
-      // оновити порядок після додавання
-      renderThoughts();
-    });
-  }
-
-  // Перемішати при кожному завантаженні сторінки
   document.addEventListener('DOMContentLoaded', renderThoughts);
 </script>
 </body>
